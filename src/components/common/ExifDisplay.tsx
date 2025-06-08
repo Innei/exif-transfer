@@ -39,8 +39,10 @@ const formatValue = (value: unknown): string => {
 
 export const ExifDisplay = ({
   exifData,
+  fujiRecipe,
 }: {
   exifData: Record<string, any> | null
+  fujiRecipe?: Record<string, any> | null
 }) => {
   if (!exifData) return null
 
@@ -66,6 +68,10 @@ export const ExifDisplay = ({
   }
 
   const allSections = [...exifSectionsData]
+
+  if (fujiRecipe) {
+    allSections.unshift(['Fuji Recipe', fujiRecipe])
+  }
 
   if (generalData.length > 0) {
     const generalSection: [string, Record<string, any>] = [

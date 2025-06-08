@@ -2,6 +2,7 @@
 import { Buffer } from 'buffer'
 import type { Exif } from 'exif-reader'
 import exifReader from 'exif-reader'
+import getRecipe from 'fuji-recipes'
 import * as piexif from 'piexif-ts'
 import type { DragEvent } from 'react'
 import { useCallback, useState } from 'react'
@@ -83,12 +84,22 @@ export const Component = () => {
   const [targetImage, setTargetImage] = useState<ImageState | null>(null)
   const [newImageUrl, setNewImageUrl] = useState<string | null>(null)
   const [sourceExif, setSourceExif] = useState<Exif | null>(null)
+  const [sourceFujiRecipe, setSourceFujiRecipe] = useState<Record<
+    string,
+    any
+  > | null>(null)
   const [targetExif, setTargetExif] = useState<Exif | null>(null)
+  const [targetFujiRecipe, setTargetFujiRecipe] = useState<Record<
+    string,
+    any
+  > | null>(null)
   const [removeGps, setRemoveGps] = useState(true)
 
   const handleSourceImageChange = (file: File) => {
     setSourceImage({ file, previewUrl: URL.createObjectURL(file) })
     setTargetExif(null)
+    setSourceFujiRecipe(null)
+    setTargetFujiRecipe(null)
 
     const reader = new FileReader()
     reader.onload = (e) => {
@@ -99,10 +110,22 @@ export const Component = () => {
 
         const exif = exifReader(Buffer.from(exifSegmentStr, 'binary'))
         setSourceExif(exif)
+
+        if (exif.Photo?.MakerNote) {
+          try {
+            const recipe = getRecipe(exif.Photo?.MakerNote)
+
+            setSourceFujiRecipe(recipe)
+          } catch (error) {
+            console.warn('Could not parse Fuji recipe from MakerNote.', error)
+            setSourceFujiRecipe(null)
+          }
+        }
       } catch (error) {
         console.error('Could not read EXIF data from source image.', error)
         toast.error('Could not read EXIF data from source image.')
         setSourceExif(null)
+        setSourceFujiRecipe(null)
       }
     }
     reader.readAsDataURL(file)
@@ -111,6 +134,7 @@ export const Component = () => {
   const handleTargetImageChange = (file: File) => {
     setTargetImage({ file, previewUrl: URL.createObjectURL(file) })
     setTargetExif(null)
+    setTargetFujiRecipe(null)
     setNewImageUrl(null)
   }
 
@@ -141,9 +165,24 @@ export const Component = () => {
 
           const newExif = exifReader(Buffer.from(newExifSegmentStr, 'binary'))
           setTargetExif(newExif)
+          if ((newExif as any).MakerNote) {
+            try {
+              const recipe = getRecipe((newExif as any).MakerNote)
+              setTargetFujiRecipe(recipe)
+            } catch (error) {
+              console.warn(
+                'Could not parse Fuji recipe from transferred MakerNote.',
+                error,
+              )
+              setTargetFujiRecipe(null)
+            }
+          } else {
+            setTargetFujiRecipe(null)
+          }
         } catch (error) {
           console.error('Could not read EXIF from new image.', error)
           setTargetExif(null)
+          setTargetFujiRecipe(null)
         }
 
         // Also update the target image preview to show the new image with exif
@@ -181,7 +220,7 @@ export const Component = () => {
       <div className="w-full max-w-4xl p-8 mx-auto space-y-8">
         <header className="text-center">
           <h1 className="text-4xl font-bold text-zinc-900 dark:text-zinc-50">
-            EXIF Transfer
+            EXIF Reader & Transfer
           </h1>
           <p className="text-zinc-600 dark:text-zinc-400">
             Copy EXIF data from one image to another.
@@ -229,8 +268,8 @@ export const Component = () => {
           </div>
         </div>
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
-          <ExifDisplay exifData={sourceExif} />
-          <ExifDisplay exifData={targetExif} />
+          <ExifDisplay exifData={sourceExif} fujiRecipe={sourceFujiRecipe} />
+          <ExifDisplay exifData={targetExif} fujiRecipe={targetFujiRecipe} />
         </div>
       </div>
     </div>
