@@ -9,6 +9,7 @@ import { toast } from 'sonner'
 
 import { ExifDisplay } from '~/components/common/ExifDisplay'
 import { Button } from '~/components/ui/button'
+import { Checkbox } from '~/components/ui/checkbox'
 import { Toaster } from '~/components/ui/sonner'
 
 interface ImageState {
@@ -83,6 +84,7 @@ export const Component = () => {
   const [newImageUrl, setNewImageUrl] = useState<string | null>(null)
   const [sourceExif, setSourceExif] = useState<Exif | null>(null)
   const [targetExif, setTargetExif] = useState<Exif | null>(null)
+  const [removeGps, setRemoveGps] = useState(true)
 
   const handleSourceImageChange = (file: File) => {
     setSourceImage({ file, previewUrl: URL.createObjectURL(file) })
@@ -122,6 +124,9 @@ export const Component = () => {
     readerSource.onload = (e) => {
       const sourceDataUrl = e.target?.result as string
       const exifObj = piexif.load(sourceDataUrl)
+      if (removeGps) {
+        delete exifObj.GPS
+      }
       const exifStr = piexif.dump(exifObj)
 
       const readerTarget = new FileReader()
@@ -198,15 +203,30 @@ export const Component = () => {
             onImageChange={handleTargetImageChange}
           />
         </div>
-        <div className="flex justify-center space-x-4">
-          <Button onClick={handleTransfer}>Transfer EXIF</Button>
-          <Button
-            onClick={handleDownload}
-            variant="secondary"
-            disabled={!newImageUrl}
-          >
-            Download Image
-          </Button>
+        <div className="flex flex-col items-center justify-center gap-4">
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="remove-gps"
+              checked={removeGps}
+              onCheckedChange={(checked) => setRemoveGps(checked === true)}
+            />
+            <label
+              htmlFor="remove-gps"
+              className="text-sm font-medium leading-none cursor-pointer select-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+            >
+              Remove GPS information
+            </label>
+          </div>
+          <div className="flex justify-center space-x-4">
+            <Button onClick={handleTransfer}>Transfer EXIF</Button>
+            <Button
+              onClick={handleDownload}
+              variant="secondary"
+              disabled={!newImageUrl}
+            >
+              Download Image
+            </Button>
+          </div>
         </div>
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           <ExifDisplay exifData={sourceExif} />
