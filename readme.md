@@ -1,50 +1,53 @@
-# Modern React Template
+# EXIF Transfer
 
-A production-ready Vite + React template with modern tooling, beautiful UI components, and developer-focused features. Built with contemporary design principles inspired by leading companies like Vercel.
+A modern web application for transferring EXIF metadata between images. Built with React, TypeScript, and TailwindCSS, featuring an intuitive drag-and-drop interface for photographers and image processing workflows.
 
 ## ✨ Features
 
-### 🚀 Modern Development Stack
+### 📸 EXIF Data Management
 
-- **Vite 5** - Lightning-fast build tool with HMR
-- **React 18** - Latest React with concurrent features
-- **TypeScript** - Full type safety and IntelliSense
-- **TailwindCSS 4** - Utility-first CSS with modern features
+- **Extract EXIF Data** - Read comprehensive metadata from source images
+- **Transfer EXIF Data** - Copy metadata between different images seamlessly
+- **Preserve Image Quality** - Lossless EXIF operations without image degradation
+- **Multiple Format Support** - Works with JPEG, PNG and other common formats
+- **Detailed EXIF Display** - View organized metadata with human-readable labels
 
-### 🎨 Beautiful UI Components
+### 🎨 Modern Interface
 
-- **Animated Components** - Smooth animations with Framer Motion
-- **Modern Design System** - Clean, minimal aesthetic inspired by Vercel
+- **Drag & Drop Upload** - Intuitive file upload experience with visual feedback
+- **Real-time Preview** - Instant image and EXIF data visualization
 - **Dark/Light Theme** - System preference aware theme switching
-- **Interactive Elements** - Buttons, tooltips, icons with micro-interactions
+- **Responsive Design** - Mobile-first approach optimized for all devices
+- **Interactive EXIF Viewer** - Collapsible sections with organized metadata display
+
+### 🚀 Technical Stack
+
+- **Vite 6** - Lightning-fast build tool with Hot Module Replacement
+- **React 19** - Latest React with concurrent features
+- **TypeScript** - Full type safety and IntelliSense support
+- **TailwindCSS 4** - Utility-first CSS with modern design system
+- **EXIF Libraries** - `exif-reader` and `piexif-ts` for robust metadata handling
 
 ### 🛠️ Developer Experience
 
-- **ESLint + Prettier** - Code formatting and linting
-- **Git Hooks** - Pre-commit hooks with lint-staged
-- **Auto Routes** - File-based routing with React Router DOM
-- **TypeScript Config** - Optimized tsconfig with path mapping
-
-### 📱 Production Ready
-
-- **Responsive Design** - Mobile-first approach
-- **Optimized Builds** - Code splitting and tree shaking
-- **Modern Browser Support** - ES2020+ features
-- **Vercel Ready** - Optimized for Vercel deployment
+- **ESLint + Prettier** - Consistent code formatting and linting
+- **Git Hooks** - Pre-commit hooks with lint-staged for quality assurance
+- **Modern Tooling** - Optimized development workflow with hot reloading
+- **TypeScript Config** - Strict type checking with path mapping support
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- pnpm
+- pnpm (recommended package manager)
 
 ### Installation
 
 ```bash
-# Clone the template
-git clone https://github.com/innei-template/vite-react-tailwind-template
-cd vite-react-tailwind-template
+# Clone the repository
+git clone https://github.com/innei/exif-transfer
+cd exif-transfer
 
 # Install dependencies
 pnpm install
@@ -53,72 +56,66 @@ pnpm install
 pnpm dev
 ```
 
+## 🎯 How to Use
+
+1. **Upload Source Image** - Drag and drop or click to select an image with EXIF data
+2. **Upload Target Image** - Select the image you want to add EXIF data to
+3. **Transfer EXIF** - Click "Transfer EXIF" to copy metadata from source to target
+4. **View Results** - Inspect the transferred EXIF data in the organized display
+5. **Download** - Save the processed image with embedded EXIF metadata
+
 ## 📁 Project Structure
 
 ```
 src/
 ├── components/          # Reusable UI components
-│   ├── ui/             # Base UI components (buttons, tooltips, etc.)
-│   └── common/         # Common app components
-├── pages/              # File-based routing pages
+│   ├── ui/             # Base UI components (buttons, accordion, etc.)
+│   └── common/         # App-specific components
+│       └── ExifDisplay.tsx  # EXIF metadata display component
+├── pages/              # Application pages
+│   └── (main)/         # Main EXIF transfer interface
 ├── hooks/              # Custom React hooks
 ├── lib/                # Utility functions and configurations
+│   ├── exif-tags.ts    # EXIF tag mapping and translations
+│   └── cn.ts           # Class name utilities
 ├── providers/          # Context providers
-├── styles/             # Global styles and Tailwind config
-└── assets/             # Static assets (fonts, images)
+├── atoms/              # Jotai state management
+└── styles/             # Global styles and Tailwind config
 ```
 
-## 🎨 UI Components
+## 🔧 Key Components
 
-### Buttons
+### EXIF Display (`ExifDisplay.tsx`)
 
-- Multiple variants (primary, secondary, ghost, destructive)
-- Loading states with animations
-- Icon support with Lucide React
-- Motion effects with Framer Motion
+- Organized metadata display with collapsible sections
+- Human-readable tag names and value formatting
+- Support for binary data and complex EXIF structures
+- Responsive grid layout for optimal viewing
 
-### Theme System
+### Image Uploader
 
-- Automatic dark/light mode detection
-- Manual theme switching
-- Persistent theme preferences
-- Smooth transitions between themes
+- Drag and drop functionality with visual feedback
+- Image preview with proper aspect ratio handling
+- File type validation for supported formats
+- Error handling for invalid or corrupted images
 
-### Interactive Elements
+### EXIF Processing
 
-- Animated tooltips
-- Icon buttons with hover effects
-- Context menus
-- Loading indicators
+- Robust metadata extraction using `exif-reader`
+- Metadata injection with `piexif-ts` library
+- Binary data handling and encoding/decoding
+- Error handling for various edge cases
 
-## 🔧 Configuration
+## 🎨 EXIF Data Support
 
-### Tailwind CSS
+The application handles comprehensive EXIF metadata including:
 
-The template uses TailwindCSS 4 with custom configurations for:
-
-- Custom color palette
-- Typography scales
-- Animation utilities
-- Dark mode support
-
-### TypeScript
-
-Path mapping is configured for clean imports:
-
-```typescript
-import { Button } from '~/components/ui/button/Button'
-import { useDark } from '~/hooks/common/useDark'
-```
-
-### ESLint & Prettier
-
-Opinionated configuration for:
-
-- React best practices
-- TypeScript strict rules
-- Import sorting
-- Code formatting consistency
+- **Camera Settings** - Aperture, shutter speed, ISO, focal length
+- **Image Details** - Resolution, color space, orientation
+- **GPS Information** - Location coordinates and altitude
+- **Timestamps** - Creation and modification dates
+- **Equipment Info** - Camera make, model, lens information
+- **Technical Data** - White balance, exposure mode, flash settings
 
 ## 🤝 Contributing
 
@@ -130,19 +127,12 @@ Opinionated configuration for:
 
 ## 📄 License
 
-This template is open source and available under the [MIT License](LICENSE).
+This project is open source and available under the [MIT License](LICENSE).
+
+---
+
+**Built with ❤️ for photographers and image processing enthusiasts**
 
 2025 © Innei, Released under the MIT License.
 
 > [Personal Website](https://innei.ren/) · GitHub [@Innei](https://github.com/innei/)
-
-## 🙏 Acknowledgments
-
-- Design inspiration from [Vercel](https://vercel.com)
-- Icons by [Lucide](https://lucide.dev)
-- Animations by [Framer Motion](https://www.framer.com/motion)
-- Built with [Vite](https://vitejs.dev) and [React](https://react.dev)
-
----
-
-**Ready to build something amazing?** ⚡

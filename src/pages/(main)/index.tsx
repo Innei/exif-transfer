@@ -18,18 +18,23 @@ interface ImageState {
 
 const ImageUploader = ({
   title,
+  id,
   image,
   onImageChange,
 }: {
   title: string
+  id: string
   image: ImageState | null
   onImageChange: (file: File) => void
 }) => {
-  const handleFileChange = (files: FileList | null) => {
-    if (files && files[0]) {
-      onImageChange(files[0])
-    }
-  }
+  const handleFileChange = useCallback(
+    (files: FileList | null) => {
+      if (files && files[0]) {
+        onImageChange(files[0])
+      }
+    },
+    [onImageChange],
+  )
 
   const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>) => {
     event.preventDefault()
@@ -40,7 +45,7 @@ const ImageUploader = ({
       event.preventDefault()
       handleFileChange(event.dataTransfer.files)
     },
-    [onImageChange],
+    [handleFileChange],
   )
 
   return (
@@ -49,12 +54,12 @@ const ImageUploader = ({
       onDragOver={handleDragOver}
       onDrop={handleDrop}
       onClick={() =>
-        (document.querySelector(`#${title}-file-input`) as HTMLElement)?.click()
+        (document.querySelector(`#${id}-file-input`) as HTMLElement)?.click()
       }
     >
       <input
         type="file"
-        id={`${title}-file-input`}
+        id={`${id}-file-input`}
         className="hidden"
         accept="image/jpeg,image/png"
         onChange={(e) => handleFileChange(e.target.files)}
@@ -181,12 +186,14 @@ export const Component = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
           <ImageUploader
             title="Source Image"
+            id="source-image"
             image={sourceImage}
             onImageChange={handleSourceImageChange}
           />
 
           <ImageUploader
             title="Target Image"
+            id="target-image"
             image={targetImage}
             onImageChange={handleTargetImageChange}
           />
