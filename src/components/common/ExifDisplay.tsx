@@ -16,6 +16,8 @@ import {
   whiteBalanceMap,
 } from '~/lib/exif-tags'
 
+import { GpsDisplay } from './GpsDisplay'
+
 const IGNORED_KEYS = new Set(['thumbnail'])
 
 const formatValue = (key: string, value: unknown): string => {
@@ -163,7 +165,7 @@ const extractKeyParameters = (
         return exifData[key]
       }
       // Also check in nested objects
-      for (const [sectionKey, sectionValue] of Object.entries(exifData)) {
+      for (const [, sectionValue] of Object.entries(exifData)) {
         if (
           typeof sectionValue === 'object' &&
           sectionValue !== null &&
@@ -224,9 +226,16 @@ export const ExifDisplay = ({
 
   const exifSectionsData: [string, Record<string, any>][] = []
   const generalData: [string, any][] = []
+  let gpsData: Record<string, any> | null = null
 
   for (const [key, value] of Object.entries(exifData)) {
     if (IGNORED_KEYS.has(key)) {
+      continue
+    }
+
+    // Separate GPS data for special handling
+    if (key === 'GPSInfo' && typeof value === 'object' && value !== null) {
+      gpsData = value
       continue
     }
 
@@ -263,7 +272,7 @@ export const ExifDisplay = ({
     allSections.unshift(generalSection)
   }
 
-  if (allSections.length === 0) {
+  if (allSections.length === 0 && !gpsData) {
     return (
       <div className="p-4 mt-4 border rounded-lg bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
         <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -275,46 +284,65 @@ export const ExifDisplay = ({
 
   return (
     <div className="w-full mt-4">
-      <Accordion
-        type="multiple"
-        className="w-full"
-        defaultValue={allSections.map(([sectionName]) => sectionName)}
-      >
-        {allSections.map(([sectionName, sectionData]) => (
-          <AccordionItem key={sectionName} value={sectionName}>
-            <AccordionTrigger className="text-left">
-              <span className="font-medium">
-                {exifTagMap[sectionName] || sectionName}
-              </span>
-            </AccordionTrigger>
-            <AccordionContent>
-              <div className="grid gap-2 text-sm">
-                {Object.entries(sectionData).map(([key, value]) => {
-                  const displayKey = exifTagMap[key] || key
-                  const displayValue =
-                    sectionName === 'Fuji Recipe'
-                      ? formatFujiRecipeValue(key, value)
-                      : formatValue(key, value)
+      {/* Regular EXIF sections */}
+      {allSections.length > 0 && (
+        <Accordion
+          type="multiple"
+          className="w-full"
+          defaultValue={allSections.map(([sectionName]) => sectionName)}
+        >
+          {allSections.map(([sectionName, sectionData]) => (
+            <AccordionItem key={sectionName} value={sectionName}>
+              <AccordionTrigger className="text-left">
+                <span className="font-medium">
+                  {exifTagMap[sectionName] || sectionName}
+                </span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="grid gap-2 text-sm">
+                  {Object.entries(sectionData).map(([key, value]) => {
+                    const displayKey = exifTagMap[key] || key
+                    const displayValue =
+                      sectionName === 'Fuji Recipe'
+                        ? formatFujiRecipeValue(key, value)
+                        : formatValue(key, value)
 
-                  return (
-                    <div
-                      key={key}
-                      className="grid grid-cols-[1fr_auto] gap-1 py-1"
-                    >
-                      <div className="font-medium text-zinc-700 dark:text-zinc-300 break-words">
-                        {displayKey}
+                    return (
+                      <div
+                        key={key}
+                        className="grid grid-cols-[1fr_auto] gap-1 py-1"
+                      >
+                        <div className="font-medium text-text break-words">
+                          {displayKey}
+                        </div>
+                        <div className="text-text-secondary break-words font-mono text-xs sm:text-sm">
+                          {displayValue}
+                        </div>
                       </div>
-                      <div className="text-zinc-600 dark:text-zinc-400 break-words font-mono text-xs sm:text-sm">
-                        {displayValue}
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            </AccordionContent>
-          </AccordionItem>
-        ))}
-      </Accordion>
+                    )
+                  })}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          ))}
+        </Accordion>
+      )}
+
+      {/* GPS Section with specialized component */}
+      {gpsData && (
+        <div className="mt-4">
+          <Accordion type="multiple" className="w-full" defaultValue={['GPS']}>
+            <AccordionItem value="GPS">
+              <AccordionTrigger className="text-left">
+                <span className="font-medium">GPS Location</span>
+              </AccordionTrigger>
+              <AccordionContent>
+                <GpsDisplay gpsData={gpsData} />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
+        </div>
+      )}
     </div>
   )
 }
