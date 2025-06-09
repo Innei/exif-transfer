@@ -1,4 +1,5 @@
 import { Label } from '@radix-ui/react-label'
+import type { Exif } from 'exif-reader'
 import * as piexif from 'piexif-ts'
 import { useEffect, useState } from 'react'
 
@@ -13,9 +14,7 @@ import { convertExifReaderToPiexif } from '~/lib/exif-converter'
 export const Component = () => {
   const [image, setImage] = useState<ImageState | null>(null)
   const { exif, piexifExif, fujiRecipe } = useExif(image?.file || null)
-  const [editableExif, setEditableExif] = useState<Record<string, any> | null>(
-    null,
-  )
+  const [editableExif, setEditableExif] = useState<Exif | null>(null)
   const [originalPiexifExif, setOriginalPiexifExif] =
     useState<piexif.IExif | null>(null)
   const [removeGps, setRemoveGps] = useState(true)
@@ -59,7 +58,7 @@ export const Component = () => {
     reader.readAsDataURL(file)
   }
 
-  const handleExifChange = (newExif: Record<string, any>) => {
+  const handleExifChange = (newExif: Exif) => {
     setEditableExif(newExif)
   }
 

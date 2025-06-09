@@ -1,20 +1,5 @@
+import type { Exif } from 'exif-reader'
 import * as piexif from 'piexif-ts'
-
-const nameToTagMap: Record<string, { tag: number; ifd: string }> = {}
-for (const ifd in piexif.Tags) {
-  for (const tag in piexif.Tags[ifd]) {
-    nameToTagMap[piexif.Tags[ifd][tag].name] = {
-      tag: Number.parseInt(tag, 10),
-      ifd,
-    }
-  }
-}
-
-const exifReaderIfdToPiexifIfd: Record<string, string> = {
-  Image: '0th',
-  Photo: 'Exif',
-  GPS: 'GPS',
-}
 
 const RATIONAL_TAGS = new Set([
   'ExposureTime',
@@ -64,6 +49,7 @@ const UNDEFINED_TAGS = new Set([
   'UserComment',
   'FileSource',
   'SceneType',
+  'PrintImageMatching',
 ])
 const DATETIME_TAGS = new Set([
   'DateTimeOriginal',
@@ -139,44 +125,111 @@ const convertValueToPiexifFormat = (tagName: string, value: any) => {
 }
 
 export const convertExifReaderToPiexif = (
-  exifReaderData: Record<string, any>,
+  exifReaderData: Exif,
   originalThumbnail: string | null | undefined,
-) => {
+): piexif.IExif => {
   const piexifData: piexif.IExif = {
     '0th': {},
     Exif: {},
     GPS: {},
     '1st': {},
+    Interop: {},
     thumbnail: originalThumbnail || undefined,
   }
 
-  for (const exifReaderIfdName in exifReaderData) {
-    const piexifIfdName = exifReaderIfdToPiexifIfd[exifReaderIfdName]
-    if (!piexifIfdName || !piexifData[piexifIfdName]) continue
+  const findTagDetails = (
+    tagName: string,
+    ifdName: string,
+  ): { code: number; ifd: string } | undefined => {
+    const ifd = (piexif.Tags as any)[ifdName] as Record<
+      string,
+      { name: string; type: number }
+    >
+    if (!ifd) return undefined
+    for (const code in ifd) {
+      if (ifd[code].name === tagName) {
+        return { code: Number(code), ifd: ifdName }
+      }
+    }
+    return undefined
+  }
 
-    const ifdData = exifReaderData[exifReaderIfdName]
-    for (const tagName in ifdData) {
-      const tagInfo = nameToTagMap[tagName]
-      if (tagInfo) {
-        let belongsToCurrentIfd = false
-        if (exifReaderIfdName === 'Image' && tagInfo.ifd === 'Image') {
-          belongsToCurrentIfd = true
-        } else if (exifReaderIfdName === 'Photo' && tagInfo.ifd === 'Exif') {
-          belongsToCurrentIfd = true
-        } else if (exifReaderIfdName === 'GPS' && tagInfo.ifd === 'GPS') {
-          belongsToCurrentIfd = true
-        }
-
-        if (belongsToCurrentIfd) {
-          const originalValue = ifdData[tagName]
-          const convertedValue = convertValueToPiexifFormat(
-            tagName,
-            originalValue,
-          )
-          piexifData[piexifIfdName]![tagInfo.tag] = convertedValue
+  // Process Image data (goes to 0th or Exif)
+  if (exifReaderData.Image) {
+    for (const tagName in exifReaderData.Image) {
+      const value = exifReaderData.Image[tagName]
+      const tagDetails =
+        findTagDetails(tagName, 'Image') ?? findTagDetails(tagName, 'Exif')
+      if (tagDetails) {
+        const destIfd =
+          tagDetails.ifd === 'Image'
+            ? piexifData['0th']
+            : (piexifData[tagDetails.ifd as keyof piexif.IExif] as Record<
+                number,
+                piexif.IExifElement
+              >)
+        if (destIfd) {
+          destIfd[tagDetails.code] = convertValueToPiexifFormat(tagName, value)
         }
       }
     }
   }
+
+  // Process Photo data (goes to Exif)
+  if (exifReaderData.Photo) {
+    for (const tagName in exifReaderData.Photo) {
+      const value = exifReaderData.Photo[tagName]
+      const tagDetails = findTagDetails(tagName, 'Exif')
+      if (tagDetails && piexifData.Exif) {
+        piexifData.Exif[tagDetails.code] = convertValueToPiexifFormat(
+          tagName,
+          value,
+        )
+      }
+    }
+  }
+
+  // Process ThumbnailTags (goes to 1st)
+  if (exifReaderData.ThumbnailTags) {
+    for (const tagName in exifReaderData.ThumbnailTags) {
+      const value = exifReaderData.ThumbnailTags[tagName]
+      const tagDetails = findTagDetails(tagName, 'FirstIFD')
+      if (tagDetails && piexifData['1st']) {
+        piexifData['1st'][tagDetails.code] = convertValueToPiexifFormat(
+          tagName,
+          value,
+        )
+      }
+    }
+  }
+
+  // Process GPSInfo (goes to GPS)
+  if (exifReaderData.GPSInfo) {
+    for (const tagName in exifReaderData.GPSInfo) {
+      const value = exifReaderData.GPSInfo[tagName]
+      const tagDetails = findTagDetails(tagName, 'GPS')
+      if (tagDetails && piexifData.GPS) {
+        piexifData.GPS[tagDetails.code] = convertValueToPiexifFormat(
+          tagName,
+          value,
+        )
+      }
+    }
+  }
+
+  // Process Iop (goes to Interop)
+  if (exifReaderData.Iop) {
+    for (const tagName in exifReaderData.Iop) {
+      const value = exifReaderData.Iop[tagName]
+      const tagDetails = findTagDetails(tagName, 'Interop')
+      if (tagDetails && piexifData.Interop) {
+        piexifData.Interop[tagDetails.code] = convertValueToPiexifFormat(
+          tagName,
+          value,
+        )
+      }
+    }
+  }
+
   return piexifData
 }

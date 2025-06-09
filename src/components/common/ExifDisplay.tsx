@@ -1,3 +1,4 @@
+import type { Exif } from 'exif-reader'
 import { useEffect, useRef, useState } from 'react'
 
 import {
@@ -305,9 +306,9 @@ export const ExifDisplay = ({
   fujiRecipe,
   onExifChange,
 }: {
-  exifData: Record<string, any> | null
+  exifData: Exif | null
   fujiRecipe?: Record<string, any> | null
-  onExifChange?: (newExifData: Record<string, any>) => void
+  onExifChange?: (newExifData: Exif) => void
 }) => {
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
@@ -559,7 +560,8 @@ export const ExifDisplay = ({
                                 }
                               }}
                               onBlur={handleCancel}
-                              className="h-6 px-1 w-full"
+                              className="h-6 p-0.5 w-full"
+                              inputClassName="text-right text-sm"
                             />
                           ) : (
                             <div

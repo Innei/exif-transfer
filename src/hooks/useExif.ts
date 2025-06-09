@@ -27,6 +27,7 @@ export const useExif = (file: File | null) => {
       try {
         const dataUrl = e.target?.result as string
         const exifObj = piexif.load(dataUrl)
+
         setPiexifExif(exifObj)
         const exifSegmentStr = piexif.dump(exifObj)
 
