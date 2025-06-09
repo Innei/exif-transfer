@@ -119,7 +119,7 @@ export const Component = () => {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[calc(100svh-15rem)] bg-zinc-50 dark:bg-zinc-900">
+    <div className="flex flex-col items-center justify-center min-h-[calc(100svh-14rem)] bg-zinc-50 dark:bg-zinc-900">
       <div className="w-full max-w-4xl p-8 mx-auto space-y-8">
         <header className="text-center">
           <h1 className="text-4xl font-bold text-zinc-900 dark:text-zinc-50">
