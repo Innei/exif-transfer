@@ -51,7 +51,7 @@ export const ImageUploader = ({
         type="file"
         id={`${id}-file-input`}
         className="hidden"
-        accept="image/jpeg,image/png"
+        accept="image/jpeg,image/tiff,image/heic,image/heif"
         onChange={(e) => handleFileChange(e.target.files)}
       />
       {image?.previewUrl ? (
