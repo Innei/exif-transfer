@@ -2,6 +2,8 @@ import { useState } from 'react'
 
 import { exifTagMap } from '~/lib/exif-tags'
 
+import { Button } from '../ui/button'
+
 interface GpsData {
   GPSLatitude?: number[]
   GPSLongitude?: number[]
@@ -186,29 +188,26 @@ export const GpsDisplay = ({ gpsData }: { gpsData: GpsData }) => {
 
       {/* Map Controls */}
       <div className="flex flex-col gap-2">
-        <div className="flex gap-2 flex-wrap">
-          <button
-            onClick={() => setShowMap(!showMap)}
-            className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
+        <div className="flex gap-2 flex-wrap justify-end">
+          <Button type="button" onClick={() => setShowMap(!showMap)}>
             {showMap ? 'Hide Map' : 'Show Map'}
-          </button>
-          <a
-            href={googleMapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1 text-xs bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+          </Button>
+          <Button
+            className="bg-green"
+            onClick={() => {
+              window.open(googleMapsUrl, '_blank')
+            }}
           >
             Open in Google Maps
-          </a>
-          <a
-            href={openStreetMapUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-3 py-1 text-xs bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
+          </Button>
+          <Button
+            className="bg-orange"
+            onClick={() => {
+              window.open(openStreetMapUrl, '_blank')
+            }}
           >
             Open in OpenStreetMap
-          </a>
+          </Button>
         </div>
 
         {/* Embedded Map */}
