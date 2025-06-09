@@ -1,24 +1,28 @@
-# EXIF Transfer
+# EXIF Transfer & Editor
 
-A modern web application for transferring EXIF metadata between images. Built with React, TypeScript, and TailwindCSS, featuring an intuitive drag-and-drop interface for photographers and image processing workflows.
+A modern web application for reading, editing, and transferring EXIF metadata between images. Built with React, TypeScript, and TailwindCSS, featuring an intuitive drag-and-drop interface for photographers and image processing workflows.
 
 ## ✨ Features
 
 ### 📸 EXIF Data Management
 
-- **Extract EXIF Data** - Read comprehensive metadata from source images
+- **Read & Edit EXIF Data** - View and modify comprehensive metadata from images with an interactive editor
 - **Transfer EXIF Data** - Copy metadata between different images seamlessly
 - **Preserve Image Quality** - Lossless EXIF operations without image degradation
 - **Multiple Format Support** - Works with JPEG, PNG and other common formats
-- **Detailed EXIF Display** - View organized metadata with human-readable labels
+- **Detailed EXIF Display** - View organized metadata with human-readable labels and collapsible sections
+- **GPS Data Control** - Option to preserve or remove GPS location information
+- **Fuji Film Simulation Support** - Special handling for Fujifilm camera recipes and film simulations
 
 ### 🎨 Modern Interface
 
+- **Dual Mode Operation** - Separate modes for EXIF editing and data transfer
 - **Drag & Drop Upload** - Intuitive file upload experience with visual feedback
 - **Real-time Preview** - Instant image and EXIF data visualization
+- **Interactive EXIF Editor** - Click-to-edit functionality for modifying metadata values
 - **Dark/Light Theme** - System preference aware theme switching
 - **Responsive Design** - Mobile-first approach optimized for all devices
-- **Interactive EXIF Viewer** - Collapsible sections with organized metadata display
+- **Export Options** - Download processed images or export EXIF data as JSON
 
 ### 🚀 Technical Stack
 
@@ -27,6 +31,7 @@ A modern web application for transferring EXIF metadata between images. Built wi
 - **TypeScript** - Full type safety and IntelliSense support
 - **TailwindCSS 4** - Utility-first CSS with modern design system
 - **EXIF Libraries** - `exif-reader` and `piexif-ts` for robust metadata handling
+- **Fuji Recipes** - `fuji-recipes` library for Fujifilm film simulation support
 
 ### 🛠️ Developer Experience
 
@@ -58,7 +63,16 @@ pnpm dev
 
 ## 🎯 How to Use
 
-1. **Upload Source Image** - Drag and drop or click to select an image with EXIF data
+### EXIF Editor Mode (`/reader`)
+
+1. **Upload Image** - Drag and drop or click to select an image with EXIF data
+2. **View & Edit** - Browse organized EXIF sections and click on values to edit them
+3. **GPS Control** - Choose to preserve or remove GPS location data
+4. **Export Options** - Download the modified image or export EXIF data as JSON
+
+### EXIF Transfer Mode (`/transfer`)
+
+1. **Upload Source Image** - Select an image with EXIF data you want to copy
 2. **Upload Target Image** - Select the image you want to add EXIF data to
 3. **Transfer EXIF** - Click "Transfer EXIF" to copy metadata from source to target
 4. **View Results** - Inspect the transferred EXIF data in the organized display
@@ -71,12 +85,17 @@ src/
 ├── components/          # Reusable UI components
 │   ├── ui/             # Base UI components (buttons, accordion, etc.)
 │   └── common/         # App-specific components
-│       └── ExifDisplay.tsx  # EXIF metadata display component
+│       ├── ExifDisplay.tsx   # Interactive EXIF metadata display
+│       ├── ImageUploader.tsx # Drag & drop image uploader
+│       └── GpsDisplay.tsx    # GPS coordinate display
 ├── pages/              # Application pages
-│   └── (main)/         # Main EXIF transfer interface
+│   ├── reader/         # EXIF editor interface
+│   └── transfer/       # EXIF transfer interface
 ├── hooks/              # Custom React hooks
+│   └── useExif.ts      # EXIF data extraction hook
 ├── lib/                # Utility functions and configurations
 │   ├── exif-tags.ts    # EXIF tag mapping and translations
+│   ├── exif-converter.ts # EXIF format conversion utilities
 │   └── cn.ts           # Class name utilities
 ├── providers/          # Context providers
 ├── atoms/              # Jotai state management
@@ -85,37 +104,48 @@ src/
 
 ## 🔧 Key Components
 
-### EXIF Display (`ExifDisplay.tsx`)
+### Interactive EXIF Display (`ExifDisplay.tsx`)
 
-- Organized metadata display with collapsible sections
-- Human-readable tag names and value formatting
-- Support for binary data and complex EXIF structures
-- Responsive grid layout for optimal viewing
+- **Organized Sections** - Collapsible sections for different EXIF categories
+- **Click-to-Edit** - Interactive editing of EXIF values with proper formatting
+- **Human-Readable Labels** - Friendly names for technical EXIF tags
+- **Value Formatting** - Automatic formatting for exposure, ISO, GPS coordinates, etc.
+- **Fuji Recipe Support** - Special handling for Fujifilm film simulation data
 
-### Image Uploader
+### Image Uploader (`ImageUploader.tsx`)
 
-- Drag and drop functionality with visual feedback
-- Image preview with proper aspect ratio handling
-- File type validation for supported formats
-- Error handling for invalid or corrupted images
+- **Drag & Drop** - Visual feedback for file operations
+- **Image Preview** - Immediate preview with proper aspect ratio
+- **File Validation** - Support for JPEG, PNG, and other common formats
+- **Error Handling** - Graceful handling of invalid or corrupted files
 
 ### EXIF Processing
 
-- Robust metadata extraction using `exif-reader`
-- Metadata injection with `piexif-ts` library
-- Binary data handling and encoding/decoding
-- Error handling for various edge cases
+- **Robust Extraction** - Uses `exif-reader` for comprehensive metadata reading
+- **Metadata Injection** - `piexif-ts` library for embedding EXIF data
+- **Format Conversion** - Seamless conversion between different EXIF formats
+- **Binary Data Handling** - Proper encoding/decoding of complex EXIF structures
 
 ## 🎨 EXIF Data Support
 
 The application handles comprehensive EXIF metadata including:
 
-- **Camera Settings** - Aperture, shutter speed, ISO, focal length
-- **Image Details** - Resolution, color space, orientation
-- **GPS Information** - Location coordinates and altitude
-- **Timestamps** - Creation and modification dates
-- **Equipment Info** - Camera make, model, lens information
-- **Technical Data** - White balance, exposure mode, flash settings
+- **Camera Settings** - Aperture (f/stop), shutter speed, ISO sensitivity, focal length
+- **Image Technical** - Resolution, color space, orientation, compression
+- **GPS Information** - Latitude, longitude, altitude, timestamp
+- **Timestamps** - Original capture time, modification dates
+- **Equipment Details** - Camera make/model, lens information, firmware
+- **Exposure Data** - Exposure mode, metering mode, white balance, flash settings
+- **Fujifilm Specific** - Film simulation recipes, dynamic range settings
+
+### Supported Formats & Values
+
+- **Exposure Time** - Displayed as fractional seconds (e.g., "1/250s")
+- **Aperture** - F-number format (e.g., "f/2.8")
+- **ISO** - Standard ISO notation (e.g., "ISO 800")
+- **Focal Length** - Millimeter notation (e.g., "50mm")
+- **GPS Coordinates** - Decimal degrees with hemisphere indicators
+- **Timestamps** - Localized date/time formatting
 
 ## 🤝 Contributing
 
