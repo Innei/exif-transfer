@@ -12,15 +12,18 @@ import { ImageUploader } from '~/components/common/ImageUploader'
 import { Button } from '~/components/ui/button'
 import { Checkbox } from '~/components/ui/checkbox'
 import { useExif } from '~/hooks/useExif'
+import { convertExifReaderToPiexif } from '~/lib/exif-converter'
 
 export const Component = () => {
   const [sourceImage, setSourceImage] = useState<ImageState | null>(null)
   const [targetImage, setTargetImage] = useState<ImageState | null>(null)
   const [newImageUrl, setNewImageUrl] = useState<string | null>(null)
 
-  const { exif: sourceExif, fujiRecipe: sourceFujiRecipe } = useExif(
-    sourceImage?.file || null,
-  )
+  const {
+    exif: sourceExif,
+    piexifExif: sourcePiexifExif,
+    fujiRecipe: sourceFujiRecipe,
+  } = useExif(sourceImage?.file || null)
 
   const [targetExif, setTargetExif] = useState<any | null>(null)
   const [targetFujiRecipe, setTargetFujiRecipe] = useState<Record<
@@ -43,64 +46,63 @@ export const Component = () => {
   }
 
   const handleTransfer = async () => {
-    if (!sourceImage?.file || !targetImage?.file) {
+    if (!sourceImage?.file || !targetImage?.file || !sourceExif) {
       toast.error('Please select both source and target images.')
       return
     }
 
-    const readerSource = new FileReader()
-    readerSource.onload = (e) => {
-      const sourceDataUrl = e.target?.result as string
-      const exifObj = piexif.load(sourceDataUrl)
-      if (removeGps) {
-        delete exifObj.GPS
-      }
-      const exifStr = piexif.dump(exifObj)
+    const exifObj = convertExifReaderToPiexif(
+      sourceExif,
+      sourcePiexifExif?.thumbnail,
+    )
 
-      const readerTarget = new FileReader()
-      readerTarget.onload = (e) => {
-        const targetDataUrl = e.target?.result as string
-        const newImageDataUrl = piexif.insert(exifStr, targetDataUrl)
-        setNewImageUrl(newImageDataUrl)
+    if (removeGps) {
+      exifObj.GPS = {}
+    }
+    const exifStr = piexif.dump(exifObj)
 
-        try {
-          const newExifObj = piexif.load(newImageDataUrl)
-          const newExifSegmentStr = piexif.dump(newExifObj)
+    const readerTarget = new FileReader()
+    readerTarget.onload = (e) => {
+      const targetDataUrl = e.target?.result as string
+      const newImageDataUrl = piexif.insert(exifStr, targetDataUrl)
+      setNewImageUrl(newImageDataUrl)
 
-          const newExif = exifReader(Buffer.from(newExifSegmentStr, 'binary'))
-          setTargetExif(newExif)
-          if ((newExif as any).MakerNote) {
-            try {
-              const recipe = getRecipe((newExif as any).MakerNote)
-              setTargetFujiRecipe(recipe)
-            } catch (error) {
-              console.warn(
-                'Could not parse Fuji recipe from transferred MakerNote.',
-                error,
-              )
-              setTargetFujiRecipe(null)
-            }
-          } else {
+      try {
+        const newExifObj = piexif.load(newImageDataUrl)
+        const newExifSegmentStr = piexif.dump(newExifObj)
+
+        const newExif = exifReader(Buffer.from(newExifSegmentStr, 'binary'))
+        setTargetExif(newExif)
+        if ((newExif as any).MakerNote) {
+          try {
+            const recipe = getRecipe((newExif as any).MakerNote)
+            setTargetFujiRecipe(recipe)
+          } catch (error) {
+            console.warn(
+              'Could not parse Fuji recipe from transferred MakerNote.',
+              error,
+            )
             setTargetFujiRecipe(null)
           }
-        } catch (error) {
-          console.error('Could not read EXIF from new image.', error)
-          setTargetExif(null)
+        } else {
           setTargetFujiRecipe(null)
         }
-
-        // Also update the target image preview to show the new image with exif
-        setTargetImage((prev) =>
-          prev ? { ...prev, previewUrl: newImageDataUrl } : null,
-        )
-
-        toast.success('EXIF data transferred successfully!', {
-          description: 'You can now download the image.',
-        })
+      } catch (error) {
+        console.error('Could not read EXIF from new image.', error)
+        setTargetExif(null)
+        setTargetFujiRecipe(null)
       }
-      readerTarget.readAsDataURL(targetImage.file!)
+
+      // Also update the target image preview to show the new image with exif
+      setTargetImage((prev) =>
+        prev ? { ...prev, previewUrl: newImageDataUrl } : null,
+      )
+
+      toast.success('EXIF data transferred successfully!', {
+        description: 'You can now download the image.',
+      })
     }
-    readerSource.readAsDataURL(sourceImage.file)
+    readerTarget.readAsDataURL(targetImage.file!)
   }
 
   const handleDownload = () => {

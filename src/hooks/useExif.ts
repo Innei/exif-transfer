@@ -9,12 +9,14 @@ import { toast } from 'sonner'
 
 export const useExif = (file: File | null) => {
   const [exif, setExif] = useState<Exif | null>(null)
+  const [piexifExif, setPiexifExif] = useState<piexif.IExif | null>(null)
   const [fujiRecipe, setFujiRecipe] = useState<Record<string, any> | null>(null)
   const [isProcessing, setIsProcessing] = useState(false)
 
   useEffect(() => {
     if (!file) {
       setExif(null)
+      setPiexifExif(null)
       setFujiRecipe(null)
       return
     }
@@ -25,6 +27,7 @@ export const useExif = (file: File | null) => {
       try {
         const dataUrl = e.target?.result as string
         const exifObj = piexif.load(dataUrl)
+        setPiexifExif(exifObj)
         const exifSegmentStr = piexif.dump(exifObj)
 
         const exifData = exifReader(Buffer.from(exifSegmentStr, 'binary'))
@@ -45,6 +48,7 @@ export const useExif = (file: File | null) => {
         console.error('Could not read EXIF data from source image.', error)
         toast.error('Could not read EXIF data from source image.')
         setExif(null)
+        setPiexifExif(null)
         setFujiRecipe(null)
       } finally {
         setIsProcessing(false)
@@ -53,5 +57,5 @@ export const useExif = (file: File | null) => {
     reader.readAsDataURL(file)
   }, [file])
 
-  return { exif, fujiRecipe, isProcessing }
+  return { exif, piexifExif, fujiRecipe, isProcessing }
 }

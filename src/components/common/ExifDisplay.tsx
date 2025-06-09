@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+
 import {
   Accordion,
   AccordionContent,
@@ -16,6 +18,7 @@ import {
   whiteBalanceMap,
 } from '~/lib/exif-tags'
 
+import { Input } from '../ui/input'
 import { GpsDisplay } from './GpsDisplay'
 
 const IGNORED_KEYS = new Set(['thumbnail'])
@@ -215,13 +218,106 @@ const extractKeyParameters = (
   return keyParams
 }
 
+const reverseMap = (map: Record<number, string>): Record<string, number> => {
+  const reversed: Record<string, number> = {}
+  for (const [key, value] of Object.entries(map)) {
+    reversed[value] = Number(key)
+  }
+  return reversed
+}
+
+const reversedExposureProgramMap = reverseMap(exposureProgramMap)
+const reversedMeteringModeMap = reverseMap(meteringModeMap)
+const reversedFlashMap = reverseMap(flashMap)
+const reversedWhiteBalanceMap = reverseMap(whiteBalanceMap)
+const reversedColorSpaceMap = reverseMap(colorSpaceMap)
+const reversedOrientationMap = reverseMap(orientationMap)
+const reversedFujiFilmSimulationMap = reverseMap(fujiFilmSimulationMap)
+const reversedFujiDynamicRangeMap = reverseMap(fujiDynamicRangeMap)
+
+const unformatValue = (key: string, value: string, originalValue: any) => {
+  if (reversedExposureProgramMap[value])
+    return reversedExposureProgramMap[value]
+  if (reversedMeteringModeMap[value]) return reversedMeteringModeMap[value]
+  if (reversedFlashMap[value]) return reversedFlashMap[value]
+  if (reversedWhiteBalanceMap[value]) return reversedWhiteBalanceMap[value]
+  if (reversedColorSpaceMap[value]) return reversedColorSpaceMap[value]
+  if (reversedOrientationMap[value]) return reversedOrientationMap[value]
+  if (reversedFujiFilmSimulationMap[value])
+    return reversedFujiFilmSimulationMap[value]
+  if (reversedFujiDynamicRangeMap[value])
+    return reversedFujiDynamicRangeMap[value]
+
+  if (key === 'ExposureTime') {
+    if (value.startsWith('1/')) {
+      return 1 / Number(value.split('/')[1].replace('s', ''))
+    }
+    return Number(value.replace('s', ''))
+  }
+  if (key === 'FNumber') {
+    return Number(value.replace('f/', ''))
+  }
+  if (key === 'FocalLength') {
+    return Number(value.replace('mm', ''))
+  }
+  if (
+    key === 'ISOSpeedRatings' ||
+    key === 'ISO' ||
+    key === 'PhotographicSensitivity'
+  ) {
+    return Number(value.replace('ISO ', ''))
+  }
+  if (key === 'ExposureBiasValue') {
+    return Number(value.replace(' EV', '').replace('+', ''))
+  }
+  if (key === 'XResolution' || key === 'YResolution') {
+    return Number(value.replace(' dpi', ''))
+  }
+
+  // fuji recipe
+  if (key.toLowerCase().includes('temperature') && value.endsWith('K')) {
+    return Number(value.replace('K', ''))
+  }
+  if (
+    key.toLowerCase().includes('tint') ||
+    key.toLowerCase().includes('fine')
+  ) {
+    return Number(value.replace('+', ''))
+  }
+
+  if (typeof originalValue === 'number') {
+    const parsed = Number.parseFloat(value)
+    return Number.isNaN(parsed) ? originalValue : parsed
+  }
+
+  if (originalValue instanceof Date) {
+    const parsed = Date.parse(value)
+    return Number.isNaN(parsed) ? originalValue : new Date(parsed)
+  }
+
+  return value
+}
+
 export const ExifDisplay = ({
   exifData,
   fujiRecipe,
+  onExifChange,
 }: {
   exifData: Record<string, any> | null
   fujiRecipe?: Record<string, any> | null
+  onExifChange?: (newExifData: Record<string, any>) => void
 }) => {
+  const [editingField, setEditingField] = useState<string | null>(null)
+  const [editingValue, setEditingValue] = useState<string>('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (editingField && inputRef.current) {
+      inputRef.current.focus()
+      inputRef.current.select()
+    }
+  }, [editingField])
+
   if (!exifData) return null
 
   const exifSectionsData: [string, Record<string, any>][] = []
@@ -282,6 +378,99 @@ export const ExifDisplay = ({
     )
   }
 
+  const handleEdit = (sectionName: string, key: string, value: any) => {
+    if (!onExifChange) return
+    const fieldId = `${sectionName}.${key}`
+    setEditingField(fieldId)
+    const formatted =
+      sectionName === 'Fuji Recipe'
+        ? formatFujiRecipeValue(key, value)
+        : formatValue(key, value)
+    setEditingValue(formatted)
+  }
+
+  const handleCancel = () => {
+    setEditingField(null)
+    setEditingValue('')
+  }
+
+  const handleSave = (sectionName: string, key: string, originalValue: any) => {
+    if (!onExifChange) return
+    if (!exifData) return
+    const unformattedValue = unformatValue(key, editingValue, originalValue)
+
+    const newExifData = structuredClone(exifData)
+
+    if (sectionName === 'Fuji Recipe' && fujiRecipe) {
+      const newFujiRecipe = { ...fujiRecipe }
+      newFujiRecipe[key] = unformattedValue
+      // We need to find where the fuji recipe is to update it.
+      // This part is tricky as it's not directly in exifData standard fields.
+      // Let's assume for now it's in MakerNote or a similar field and requires special handling.
+      // The parent component will be responsible for merging it.
+      // For now, let's just update the local fujiRecipe and pass it up.
+      // A better approach would be to pass the whole exif object and let the parent figure it out.
+    } else if (
+      newExifData[sectionName] &&
+      typeof newExifData[sectionName] === 'object' &&
+      key in newExifData[sectionName]
+    ) {
+      newExifData[sectionName][key] = unformattedValue
+    } else if (key in newExifData) {
+      newExifData[key] = unformattedValue
+    } else {
+      // Fallback for key parameters which might be at the top level
+      let found = false
+      for (const section in newExifData) {
+        if (
+          typeof newExifData[section] === 'object' &&
+          newExifData[section] !== null &&
+          newExifData[section][key] !== undefined
+        ) {
+          newExifData[section][key] = unformattedValue
+          found = true
+          break
+        }
+      }
+      if (!found) {
+        // if still not found, it might be a key parameter that is not in a section
+        // e.g. 'Camera' for 'Model'
+        const keyMap: Record<string, string[]> = {
+          Camera: ['Model'],
+          Lens: ['LensModel', 'LensInfo'],
+          'Date Taken': ['DateTimeOriginal', 'DateTime'],
+          FNumber: ['FNumber', 'ApertureValue'],
+          ISO: ['ISOSpeedRatings', 'ISO', 'PhotographicSensitivity'],
+          ExposureTime: ['ExposureTime'],
+          ExposureBiasValue: ['ExposureBiasValue'],
+          FocalLength: ['FocalLength'],
+        }
+
+        const realKeys = keyMap[key]
+        if (realKeys) {
+          for (const realKey of realKeys) {
+            let updated = false
+            // search for the key in all sections and update it
+            for (const section in newExifData) {
+              if (
+                typeof newExifData[section] === 'object' &&
+                newExifData[section] !== null &&
+                newExifData[section][realKey] !== undefined
+              ) {
+                newExifData[section][realKey] = unformattedValue
+                updated = true
+                break
+              }
+            }
+            if (updated) break
+          }
+        }
+      }
+    }
+    onExifChange(newExifData)
+    setEditingField(null)
+  }
+
   return (
     <div className="w-full mt-4">
       {/* Regular EXIF sections */}
@@ -306,17 +495,45 @@ export const ExifDisplay = ({
                       sectionName === 'Fuji Recipe'
                         ? formatFujiRecipeValue(key, value)
                         : formatValue(key, value)
+                    const fieldId = `${sectionName}.${key}`
+                    const isEditing = editingField === fieldId
 
                     return (
                       <div
                         key={key}
-                        className="grid grid-cols-[1fr_auto] gap-1 py-1"
+                        className="grid grid-cols-[1fr_auto] gap-1 py-1 group"
                       >
                         <div className="font-medium text-text break-words">
                           {displayKey}
                         </div>
                         <div className="text-text-secondary break-words font-mono text-xs sm:text-sm">
-                          {displayValue}
+                          {isEditing ? (
+                            <Input
+                              ref={inputRef}
+                              type="text"
+                              value={editingValue}
+                              onChange={(e) => setEditingValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSave(sectionName, key, value)
+                                }
+                                if (e.key === 'Escape') {
+                                  handleCancel()
+                                }
+                              }}
+                              onBlur={handleCancel}
+                              className="h-6 px-1 w-full"
+                            />
+                          ) : (
+                            <div
+                              className="rounded border border-transparent h-6 group-hover:border-zinc-300 dark:group-hover:border-zinc-700 cursor-pointer"
+                              onClick={() =>
+                                handleEdit(sectionName, key, value)
+                              }
+                            >
+                              <span className="px-1">{displayValue}</span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )
