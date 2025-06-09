@@ -1,7 +1,6 @@
 'use client'
 
 import * as AccordionPrimitive from '@radix-ui/react-accordion'
-import { ChevronDown } from 'lucide-react'
 import type { HTMLMotionProps, Transition } from 'motion/react'
 import { AnimatePresence, m as motion } from 'motion/react'
 import * as React from 'react'
@@ -115,7 +114,7 @@ function AccordionTrigger({
             animate={{ rotate: isOpen ? 180 : 0 }}
             transition={transition}
           >
-            <ChevronDown className="size-5 shrink-0" />
+            <i className="size-4 text-text-secondary shrink-0 i-mingcute-down-line" />
           </motion.div>
         )}
       </AccordionPrimitive.Trigger>
