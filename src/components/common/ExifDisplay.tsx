@@ -298,6 +298,8 @@ const unformatValue = (key: string, value: string, originalValue: any) => {
   return value
 }
 
+const disabEditableSection = new Set(['Fuji Recipe', 'Key Parameters'])
+
 export const ExifDisplay = ({
   exifData,
   fujiRecipe,
@@ -382,11 +384,21 @@ export const ExifDisplay = ({
     if (!onExifChange) return
     const fieldId = `${sectionName}.${key}`
     setEditingField(fieldId)
-    const formatted =
-      sectionName === 'Fuji Recipe'
-        ? formatFujiRecipeValue(key, value)
-        : formatValue(key, value)
-    setEditingValue(formatted)
+    if (value instanceof Date) {
+      const pad = (num: number) => num.toString().padStart(2, '0')
+      const localISOString = `${value.getFullYear()}-${pad(
+        value.getMonth() + 1,
+      )}-${pad(value.getDate())}T${pad(value.getHours())}:${pad(
+        value.getMinutes(),
+      )}`
+      setEditingValue(localISOString)
+    } else {
+      const formatted =
+        sectionName === 'Fuji Recipe'
+          ? formatFujiRecipeValue(key, value)
+          : formatValue(key, value)
+      setEditingValue(formatted)
+    }
   }
 
   const handleCancel = () => {
@@ -402,14 +414,7 @@ export const ExifDisplay = ({
     const newExifData = structuredClone(exifData)
 
     if (sectionName === 'Fuji Recipe' && fujiRecipe) {
-      const newFujiRecipe = { ...fujiRecipe }
-      newFujiRecipe[key] = unformattedValue
-      // We need to find where the fuji recipe is to update it.
-      // This part is tricky as it's not directly in exifData standard fields.
-      // Let's assume for now it's in MakerNote or a similar field and requires special handling.
-      // The parent component will be responsible for merging it.
-      // For now, let's just update the local fujiRecipe and pass it up.
-      // A better approach would be to pass the whole exif object and let the parent figure it out.
+      // Fuji Recipe is not meant to be edited directly here as per new logic
     } else if (
       newExifData[sectionName] &&
       typeof newExifData[sectionName] === 'object' &&
@@ -471,6 +476,17 @@ export const ExifDisplay = ({
     setEditingField(null)
   }
 
+  const handleGpsChange = (newGpsData: Record<string, any>) => {
+    if (!onExifChange || !exifData) return
+
+    const newExifData = structuredClone(exifData)
+    newExifData.GPSInfo = {
+      ...newExifData.GPSInfo,
+      ...newGpsData,
+    }
+    onExifChange(newExifData)
+  }
+
   return (
     <div className="w-full mt-4">
       {/* Regular EXIF sections */}
@@ -498,6 +514,27 @@ export const ExifDisplay = ({
                     const fieldId = `${sectionName}.${key}`
                     const isEditing = editingField === fieldId
 
+                    const isEditable =
+                      onExifChange &&
+                      !disabEditableSection.has(sectionName) &&
+                      !displayValue.startsWith('[Binary data:')
+
+                    const isPlainNumber =
+                      typeof value === 'number' &&
+                      (sectionName === 'Fuji Recipe'
+                        ? formatFujiRecipeValue(key, value)
+                        : formatValue(key, value)) === String(value)
+
+                    const getInputType = () => {
+                      if (value instanceof Date) {
+                        return 'datetime-local'
+                      }
+                      if (isPlainNumber) {
+                        return 'number'
+                      }
+                      return 'text'
+                    }
+
                     return (
                       <div
                         key={key}
@@ -510,7 +547,7 @@ export const ExifDisplay = ({
                           {isEditing ? (
                             <Input
                               ref={inputRef}
-                              type="text"
+                              type={getInputType()}
                               value={editingValue}
                               onChange={(e) => setEditingValue(e.target.value)}
                               onKeyDown={(e) => {
@@ -526,10 +563,12 @@ export const ExifDisplay = ({
                             />
                           ) : (
                             <div
-                              className="rounded border border-transparent h-6 group-hover:border-zinc-300 dark:group-hover:border-zinc-700 cursor-pointer"
-                              onClick={() =>
-                                handleEdit(sectionName, key, value)
-                              }
+                              className={`rounded border border-transparent h-6 ${isEditable ? 'group-hover:border-zinc-300 dark:group-hover:border-zinc-700 cursor-pointer' : 'cursor-not-allowed'}`}
+                              onClick={() => {
+                                if (isEditable) {
+                                  handleEdit(sectionName, key, value)
+                                }
+                              }}
                             >
                               <span className="px-1">{displayValue}</span>
                             </div>
@@ -554,7 +593,10 @@ export const ExifDisplay = ({
                 <span className="font-medium">GPS Location</span>
               </AccordionTrigger>
               <AccordionContent>
-                <GpsDisplay gpsData={gpsData} />
+                <GpsDisplay
+                  gpsData={gpsData}
+                  onGpsChange={onExifChange ? handleGpsChange : undefined}
+                />
               </AccordionContent>
             </AccordionItem>
           </Accordion>
