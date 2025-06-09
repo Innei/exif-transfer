@@ -165,4 +165,4 @@ This project is open source and available under the [MIT License](LICENSE).
 
 2025 © Innei, Released under the MIT License.
 
-> [Personal Website](https://innei.ren/) · GitHub [@Innei](https://github.com/innei/)
+> [Personal Website](https://innei.in/) · GitHub [@Innei](https://github.com/innei/)
