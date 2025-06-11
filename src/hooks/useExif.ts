@@ -21,12 +21,19 @@ export const useExif = (file: File | null) => {
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
+    const processFile = async () => {
       setIsProcessing(true)
       try {
-        const dataUrl = e.target?.result as string
-        const exifObj = piexif.load(dataUrl)
+        const arrayBuffer = await file.arrayBuffer()
+
+        // Convert ArrayBuffer to binary string for piexif.load()
+        const uint8Array = new Uint8Array(arrayBuffer)
+        let binaryString = ''
+        for (const byte of uint8Array) {
+          binaryString += String.fromCodePoint(byte)
+        }
+
+        const exifObj = piexif.load(binaryString)
 
         setPiexifExif(exifObj)
         const exifSegmentStr = piexif.dump(exifObj)
@@ -55,7 +62,8 @@ export const useExif = (file: File | null) => {
         setIsProcessing(false)
       }
     }
-    reader.readAsDataURL(file)
+
+    processFile()
   }, [file])
 
   return { exif, piexifExif, fujiRecipe, isProcessing }

@@ -39,7 +39,7 @@
     "lucide-react": "0.513.0",
     "motion": "12.16.0",
     "ofetch": "1.4.1",
-    "piexif-ts": "npm:@innei/piexif-ts@2.1.1",
+    "piexif-ts": "npm:@innei/piexif-ts@2.1.2",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-leaflet": "5.0.0",
