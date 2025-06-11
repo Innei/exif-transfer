@@ -46,7 +46,7 @@ export const Header = () => {
                   : 'text-foreground/60 transition-colors hover:text-foreground/80'
               }
             >
-              EXIF Reader
+              Exif Editor
             </NavLink>
           </nav>
 
@@ -102,7 +102,7 @@ export const Header = () => {
                   isActive ? 'text-foreground' : 'text-foreground/60'
                 }
               >
-                EXIF Reader
+                Exif Editor
               </NavLink>
             </motion.nav>
           </motion.div>

@@ -97,7 +97,7 @@ const SelectContent = ({
   ref,
   className,
   children,
-  position = 'popper',
+  position = 'item-aligned',
   ...props
 }: React.ComponentPropsWithoutRef<typeof SelectPrimitive.Content> & {
   ref?: React.Ref<React.ElementRef<typeof SelectPrimitive.Content> | null>

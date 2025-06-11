@@ -7,6 +7,15 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '~/components/ui/accordion'
+import { Button } from '~/components/ui/button'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '~/components/ui/select'
+import { addableExifTags } from '~/lib/exif-addable-tags'
 import {
   colorSpaceMap,
   exifTagMap,
@@ -313,6 +322,14 @@ export const ExifDisplay = ({
   const [editingField, setEditingField] = useState<string | null>(null)
   const [editingValue, setEditingValue] = useState<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
+  const [isAddingField, setIsAddingField] = useState(false)
+  const [newFieldSection, setNewFieldSection] = useState(
+    Object.keys(addableExifTags)[0],
+  )
+  const [newFieldKey, setNewFieldKey] = useState('')
+  const [newFieldValue, setNewFieldValue] = useState('')
+
+  const selectedTagDefinition = addableExifTags[newFieldSection]?.[newFieldKey]
 
   useEffect(() => {
     if (editingField && inputRef.current) {
@@ -488,6 +505,65 @@ export const ExifDisplay = ({
     onExifChange(newExifData)
   }
 
+  const handleCancelAddField = () => {
+    setIsAddingField(false)
+    setNewFieldSection(Object.keys(addableExifTags)[0])
+    setNewFieldKey('')
+    setNewFieldValue('')
+  }
+
+  const handleSaveNewField = () => {
+    if (!onExifChange || !exifData || !newFieldKey || !newFieldValue) return
+
+    const newExifData = structuredClone(exifData)
+
+    if (!newExifData[newFieldSection]) {
+      newExifData[newFieldSection] = {}
+    }
+
+    // A bit of type guessing for common fields
+    let valueToSave: string | number | Date | (string | number)[] =
+      newFieldValue
+
+    const fieldType = selectedTagDefinition?.type
+    if (fieldType === 'number') {
+      valueToSave = Number.parseFloat(newFieldValue)
+    } else if (fieldType === 'datetime-local') {
+      try {
+        const date = new Date(newFieldValue)
+        if (!Number.isNaN(date.getTime())) {
+          valueToSave = date
+        }
+      } catch {
+        // Do nothing, keep as string
+      }
+    } else if (newFieldValue.includes(',')) {
+      // Simple array parsing for comma-separated values
+      valueToSave = newFieldValue.split(',').map((item) => {
+        const num = Number.parseFloat(item.trim())
+        return Number.isNaN(num) ? item.trim() : num
+      })
+    }
+
+    const sectionMap: Record<string, string> = {
+      Exif: 'Photo',
+      GPS: 'GPSInfo',
+      Interoperability: 'Iop',
+    }
+    const sectionToUpdate = sectionMap[newFieldSection] || newFieldSection
+
+    if (sectionToUpdate === 'GPSInfo' && !newExifData.GPSInfo) {
+      newExifData.GPSInfo = {}
+    } else if (!newExifData[sectionToUpdate]) {
+      newExifData[sectionToUpdate] = {}
+    }
+
+    newExifData[sectionToUpdate][newFieldKey] = valueToSave
+
+    onExifChange(newExifData)
+    handleCancelAddField()
+  }
+
   return (
     <div className="w-full mt-4">
       {/* Regular EXIF sections */}
@@ -602,6 +678,78 @@ export const ExifDisplay = ({
               </AccordionContent>
             </AccordionItem>
           </Accordion>
+        </div>
+      )}
+
+      {onExifChange && (
+        <div className="mt-4">
+          {!isAddingField ? (
+            <Button
+              variant="light"
+              onClick={() => setIsAddingField(true)}
+              disabled={!onExifChange}
+            >
+              Add EXIF Field
+            </Button>
+          ) : (
+            <div className="p-4 border rounded-lg bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
+              <h3 className="mb-2 font-medium">Add New EXIF Field</h3>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Select
+                  value={newFieldSection}
+                  onValueChange={(value) => {
+                    setNewFieldSection(value)
+                    setNewFieldKey('') // Reset key when section changes
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select section" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(addableExifTags).map((section) => (
+                      <SelectItem key={section} value={section}>
+                        {section}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={newFieldKey}
+                  onValueChange={setNewFieldKey}
+                  disabled={!newFieldSection}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select field" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.keys(
+                      addableExifTags[
+                        newFieldSection as keyof typeof addableExifTags
+                      ] || {},
+                    ).map((tag) => (
+                      <SelectItem key={tag} value={tag}>
+                        {tag}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Input
+                  type={selectedTagDefinition?.type || 'text'}
+                  placeholder={
+                    selectedTagDefinition?.description || 'Enter value'
+                  }
+                  value={newFieldValue}
+                  onChange={(e) => setNewFieldValue(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 mt-2">
+                <Button onClick={handleSaveNewField}>Save</Button>
+                <Button variant="ghost" onClick={handleCancelAddField}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
