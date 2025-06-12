@@ -36,7 +36,7 @@ interface GpsData {
   [key: string]: any
 }
 
-interface GpsDisplayProps {
+export interface GpsDisplayProps {
   gpsData: GpsData
   onGpsChange?: (newGpsData: Partial<GpsData>) => void
 }

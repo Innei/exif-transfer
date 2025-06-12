@@ -132,8 +132,8 @@ export const Component = () => {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100svh-14rem)] bg-zinc-50 dark:bg-zinc-900">
-      <div className="w-full max-w-4xl p-8 mx-auto space-y-8">
-        <header className="text-center">
+      <div className="w-full max-w-7xl p-8 mx-auto">
+        <header className="text-center mb-8">
           <h1 className="text-4xl font-bold text-zinc-900 dark:text-zinc-50">
             EXIF Editor
           </h1>
@@ -142,57 +142,60 @@ export const Component = () => {
           </p>
         </header>
 
-        <div className="max-w-2xl mx-auto">
-          <ImageUploader
-            title="Select Image"
-            id="reader-image"
-            image={image}
-            onImageChange={handleImageChange}
-          />
-        </div>
-        <div className="flex flex-col items-center justify-center gap-4 mt-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="remove-gps"
-              checked={removeGps}
-              onCheckedChange={(checked) => setRemoveGps(Boolean(checked))}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="space-y-6 md:col-span-1 md:sticky md:top-8 self-start">
+            <ImageUploader
+              title="Select Image"
+              id="reader-image"
+              image={image}
+              onImageChange={handleImageChange}
             />
-            <Label htmlFor="remove-gps">Remove GPS data</Label>
+
+            <div className="flex flex-col items-center gap-4 md:items-start">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remove-gps"
+                  checked={removeGps}
+                  onCheckedChange={(checked) => setRemoveGps(Boolean(checked))}
+                />
+                <Label htmlFor="remove-gps">Remove GPS data</Label>
+              </div>
+              <div className="flex flex-wrap justify-center gap-4 md:justify-start">
+                <Button onClick={handleDownload} disabled={!image}>
+                  Export Image
+                </Button>
+                <Button
+                  onClick={handleImportJson}
+                  disabled={!image}
+                  variant="secondary"
+                >
+                  Import EXIF JSON and Overwrite
+                </Button>
+                <Button
+                  onClick={handleExportJson}
+                  disabled={!editableExif}
+                  variant="secondary"
+                >
+                  Export EXIF JSON
+                </Button>
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImportJSONSelect}
+                style={{ display: 'none' }}
+              />
+            </div>
           </div>
-          <div>
-            <Button onClick={handleDownload} disabled={!image}>
-              Export Image
-            </Button>
+          <div className="md:col-span-2 @container">
+            <ExifDisplay
+              exifData={editableExif}
+              fujiRecipe={fujiRecipe}
+              onExifChange={handleExifChange}
+            />
           </div>
-          <div className="flex gap-4 mt-2">
-            <Button
-              onClick={handleImportJson}
-              disabled={!image}
-              variant="secondary"
-            >
-              Import EXIF JSON and Overwrite
-            </Button>
-            <Button
-              onClick={handleExportJson}
-              disabled={!editableExif}
-              variant="secondary"
-            >
-              Export EXIF JSON
-            </Button>
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".json,application/json"
-            onChange={handleImportJSONSelect}
-            style={{ display: 'none' }}
-          />
         </div>
-        <ExifDisplay
-          exifData={editableExif}
-          fujiRecipe={fujiRecipe}
-          onExifChange={handleExifChange}
-        />
       </div>
     </div>
   )

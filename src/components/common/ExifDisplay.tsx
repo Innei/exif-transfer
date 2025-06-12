@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '~/components/ui/select'
+import type { ExifTagDefinition } from '~/lib/exif-addable-tags'
 import { addableExifTags } from '~/lib/exif-addable-tags'
 import {
   colorSpaceMap,
@@ -23,12 +24,14 @@ import {
   flashMap,
   fujiDynamicRangeMap,
   fujiFilmSimulationMap,
+  fujiRecipeKeyMap,
   meteringModeMap,
   orientationMap,
   whiteBalanceMap,
 } from '~/lib/exif-tags'
 
 import { Input } from '../ui/input'
+import type { GpsDisplayProps } from './GpsDisplay'
 import { GpsDisplay } from './GpsDisplay'
 
 const IGNORED_KEYS = new Set(['thumbnail'])
@@ -245,7 +248,11 @@ const reversedOrientationMap = reverseMap(orientationMap)
 const reversedFujiFilmSimulationMap = reverseMap(fujiFilmSimulationMap)
 const reversedFujiDynamicRangeMap = reverseMap(fujiDynamicRangeMap)
 
-const unformatValue = (key: string, value: string, originalValue: any) => {
+export const unformatValue = (
+  key: string,
+  value: string,
+  originalValue: any,
+) => {
   if (reversedExposureProgramMap[value])
     return reversedExposureProgramMap[value]
   if (reversedMeteringModeMap[value]) return reversedMeteringModeMap[value]
@@ -260,55 +267,36 @@ const unformatValue = (key: string, value: string, originalValue: any) => {
 
   if (key === 'ExposureTime') {
     if (value.startsWith('1/')) {
-      return 1 / Number(value.split('/')[1].replace('s', ''))
+      return 1 / Number(value.slice(2, -1))
     }
-    return Number(value.replace('s', ''))
+    return Number(value.slice(0, -1))
   }
   if (key === 'FNumber') {
-    return Number(value.replace('f/', ''))
+    return Number(value.slice(2))
   }
   if (key === 'FocalLength') {
-    return Number(value.replace('mm', ''))
+    return Number(value.slice(0, -2))
   }
-  if (
-    key === 'ISOSpeedRatings' ||
-    key === 'ISO' ||
-    key === 'PhotographicSensitivity'
-  ) {
-    return Number(value.replace('ISO ', ''))
+  if (key.startsWith('ISO')) {
+    return Number(value.slice(4))
   }
   if (key === 'ExposureBiasValue') {
-    return Number(value.replace(' EV', '').replace('+', ''))
+    return Number(value.split(' ')[0])
   }
-  if (key === 'XResolution' || key === 'YResolution') {
-    return Number(value.replace(' dpi', ''))
-  }
-
-  // fuji recipe
-  if (key.toLowerCase().includes('temperature') && value.endsWith('K')) {
-    return Number(value.replace('K', ''))
-  }
-  if (
-    key.toLowerCase().includes('tint') ||
-    key.toLowerCase().includes('fine')
-  ) {
-    return Number(value.replace('+', ''))
-  }
-
-  if (typeof originalValue === 'number') {
-    const parsed = Number.parseFloat(value)
-    return Number.isNaN(parsed) ? originalValue : parsed
+  if (key.endsWith('Resolution')) {
+    return Number(value.split(' ')[0])
   }
 
   if (originalValue instanceof Date) {
-    const parsed = Date.parse(value)
-    return Number.isNaN(parsed) ? originalValue : new Date(parsed)
+    return new Date(value)
+  }
+
+  if (typeof originalValue === 'number') {
+    return Number(value)
   }
 
   return value
 }
-
-const disabEditableSection = new Set(['Fuji Recipe', 'Key Parameters'])
 
 export const ExifDisplay = ({
   exifData,
@@ -320,16 +308,16 @@ export const ExifDisplay = ({
   onExifChange?: (newExifData: Exif) => void
 }) => {
   const [editingField, setEditingField] = useState<string | null>(null)
-  const [editingValue, setEditingValue] = useState<string>('')
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [editingValue, setEditingValue] = useState<any>('')
   const [isAddingField, setIsAddingField] = useState(false)
-  const [newFieldSection, setNewFieldSection] = useState(
-    Object.keys(addableExifTags)[0],
-  )
-  const [newFieldKey, setNewFieldKey] = useState('')
-  const [newFieldValue, setNewFieldValue] = useState('')
+  const [newField, setNewField] = useState<{
+    section: string
+    key: string
+    value: string
+  }>({ section: '', key: '', value: '' })
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const selectedTagDefinition = addableExifTags[newFieldSection]?.[newFieldKey]
+  const disabEditableSection = new Set(['MakerNote', 'thumbnail'])
 
   useEffect(() => {
     if (editingField && inputRef.current) {
@@ -338,71 +326,21 @@ export const ExifDisplay = ({
     }
   }, [editingField])
 
-  if (!exifData) return null
-
-  const exifSectionsData: [string, Record<string, any>][] = []
-  const generalData: [string, any][] = []
-  let gpsData: Record<string, any> | null = null
-
-  for (const [key, value] of Object.entries(exifData)) {
-    if (IGNORED_KEYS.has(key)) {
-      continue
-    }
-
-    // Separate GPS data for special handling
-    if (key === 'GPSInfo' && typeof value === 'object' && value !== null) {
-      gpsData = value
-      continue
-    }
-
-    if (
-      typeof value === 'object' &&
-      value !== null &&
-      !Array.isArray(value) &&
-      !(value instanceof Uint8Array) &&
-      Object.keys(value).length > 0
-    ) {
-      exifSectionsData.push([key, value])
-    } else if (value !== null && value !== undefined) {
-      generalData.push([key, value])
-    }
+  if (!exifData) {
+    return <p>No EXIF data found.</p>
   }
 
-  const allSections = [...exifSectionsData]
-
-  // Add key parameters section at the top
-  const keyParams = extractKeyParameters(exifData)
-  if (Object.keys(keyParams).length > 0) {
-    allSections.unshift(['Key Parameters', keyParams])
-  }
-
-  if (fujiRecipe) {
-    allSections.unshift(['Fuji Recipe', fujiRecipe])
-  }
-
-  if (generalData.length > 0) {
-    const generalSection: [string, Record<string, any>] = [
-      'General',
-      Object.fromEntries(generalData),
-    ]
-    allSections.unshift(generalSection)
-  }
-
-  if (allSections.length === 0 && !gpsData) {
-    return (
-      <div className="p-4 mt-4 border rounded-lg bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          No EXIF data found in this image.
-        </p>
-      </div>
-    )
-  }
+  const keyParameters = extractKeyParameters({
+    ...exifData.Image,
+    ...exifData.Photo,
+  })
 
   const handleEdit = (sectionName: string, key: string, value: any) => {
-    if (!onExifChange) return
-    const fieldId = `${sectionName}.${key}`
-    setEditingField(fieldId)
+    if (!onExifChange || disabEditableSection.has(sectionName)) return
+    setEditingField(`${sectionName}.${key}`)
+
     if (value instanceof Date) {
+      // Format date for datetime-local input
       const pad = (num: number) => num.toString().padStart(2, '0')
       const localISOString = `${value.getFullYear()}-${pad(
         value.getMonth() + 1,
@@ -411,11 +349,7 @@ export const ExifDisplay = ({
       )}`
       setEditingValue(localISOString)
     } else {
-      const formatted =
-        sectionName === 'Fuji Recipe'
-          ? formatFujiRecipeValue(key, value)
-          : formatValue(key, value)
-      setEditingValue(formatted)
+      setEditingValue(value)
     }
   }
 
@@ -426,332 +360,342 @@ export const ExifDisplay = ({
 
   const handleSave = (sectionName: string, key: string, originalValue: any) => {
     if (!onExifChange) return
-    if (!exifData) return
-    const unformattedValue = unformatValue(key, editingValue, originalValue)
 
-    const newExifData = structuredClone(exifData)
+    const finalValue = unformatValue(key, editingValue, originalValue)
 
-    if (sectionName === 'Fuji Recipe' && fujiRecipe) {
-      // Fuji Recipe is not meant to be edited directly here as per new logic
-    } else if (
-      newExifData[sectionName] &&
-      typeof newExifData[sectionName] === 'object' &&
-      key in newExifData[sectionName]
-    ) {
-      newExifData[sectionName][key] = unformattedValue
-    } else if (key in newExifData) {
-      newExifData[key] = unformattedValue
-    } else {
-      // Fallback for key parameters which might be at the top level
-      let found = false
-      for (const section in newExifData) {
-        if (
-          typeof newExifData[section] === 'object' &&
-          newExifData[section] !== null &&
-          newExifData[section][key] !== undefined
-        ) {
-          newExifData[section][key] = unformattedValue
-          found = true
-          break
-        }
-      }
-      if (!found) {
-        // if still not found, it might be a key parameter that is not in a section
-        // e.g. 'Camera' for 'Model'
-        const keyMap: Record<string, string[]> = {
-          Camera: ['Model'],
-          Lens: ['LensModel', 'LensInfo'],
-          'Date Taken': ['DateTimeOriginal', 'DateTime'],
-          FNumber: ['FNumber', 'ApertureValue'],
-          ISO: ['ISOSpeedRatings', 'ISO', 'PhotographicSensitivity'],
-          ExposureTime: ['ExposureTime'],
-          ExposureBiasValue: ['ExposureBiasValue'],
-          FocalLength: ['FocalLength'],
-        }
-
-        const realKeys = keyMap[key]
-        if (realKeys) {
-          for (const realKey of realKeys) {
-            let updated = false
-            // search for the key in all sections and update it
-            for (const section in newExifData) {
-              if (
-                typeof newExifData[section] === 'object' &&
-                newExifData[section] !== null &&
-                newExifData[section][realKey] !== undefined
-              ) {
-                newExifData[section][realKey] = unformattedValue
-                updated = true
-                break
-              }
-            }
-            if (updated) break
-          }
-        }
-      }
+    const updatedExif = structuredClone(exifData)
+    if (updatedExif[sectionName]) {
+      updatedExif[sectionName][key] = finalValue
     }
-    onExifChange(newExifData)
+
+    onExifChange(updatedExif)
     setEditingField(null)
   }
 
-  const handleGpsChange = (newGpsData: Record<string, any>) => {
-    if (!onExifChange || !exifData) return
-
-    const newExifData = structuredClone(exifData)
-    newExifData.GPSInfo = {
-      ...newExifData.GPSInfo,
-      ...newGpsData,
+  const handleGpsChange: GpsDisplayProps['onGpsChange'] = (newGpsData) => {
+    if (!onExifChange) return
+    const updatedExif = {
+      ...exifData,
+      GPSInfo: newGpsData,
     }
-    onExifChange(newExifData)
+    onExifChange(updatedExif as Exif)
+  }
+
+  const handleStartAddField = (sectionName: string) => {
+    setNewField({ section: sectionName, key: '', value: '' })
+    setIsAddingField(true)
   }
 
   const handleCancelAddField = () => {
     setIsAddingField(false)
-    setNewFieldSection(Object.keys(addableExifTags)[0])
-    setNewFieldKey('')
-    setNewFieldValue('')
+    setNewField({ section: '', key: '', value: '' })
   }
 
-  const handleSaveNewField = () => {
-    if (!onExifChange || !exifData || !newFieldKey || !newFieldValue) return
+  const handleNewFieldChange = (field: 'key' | 'value', val: string) => {
+    setNewField((prev) => ({ ...prev, [field]: val }))
+  }
 
-    const newExifData = structuredClone(exifData)
+  const handleSaveNewField = (sectionName: string) => {
+    if (!onExifChange || !newField.key) return
 
-    if (!newExifData[newFieldSection]) {
-      newExifData[newFieldSection] = {}
+    const sectionTags = addableExifTags[sectionName]
+    if (!sectionTags) return
+
+    const tagDefinition = sectionTags[newField.key]
+    if (!tagDefinition) return
+
+    let finalValue: any = newField.value
+    if (tagDefinition.type === 'number') {
+      finalValue = Number(newField.value)
+    } else if (tagDefinition.type === 'datetime-local') {
+      finalValue = new Date(newField.value)
     }
 
-    // A bit of type guessing for common fields
-    let valueToSave: string | number | Date | (string | number)[] =
-      newFieldValue
-
-    const fieldType = selectedTagDefinition?.type
-    if (fieldType === 'number') {
-      valueToSave = Number.parseFloat(newFieldValue)
-    } else if (fieldType === 'datetime-local') {
-      try {
-        const date = new Date(newFieldValue)
-        if (!Number.isNaN(date.getTime())) {
-          valueToSave = date
-        }
-      } catch {
-        // Do nothing, keep as string
-      }
-    } else if (newFieldValue.includes(',')) {
-      // Simple array parsing for comma-separated values
-      valueToSave = newFieldValue.split(',').map((item) => {
-        const num = Number.parseFloat(item.trim())
-        return Number.isNaN(num) ? item.trim() : num
-      })
+    const updatedExif = structuredClone(exifData)
+    if (!updatedExif[sectionName]) {
+      updatedExif[sectionName] = {}
     }
-
-    const sectionMap: Record<string, string> = {
-      Exif: 'Photo',
-      GPS: 'GPSInfo',
-      Interoperability: 'Iop',
-    }
-    const sectionToUpdate = sectionMap[newFieldSection] || newFieldSection
-
-    if (sectionToUpdate === 'GPSInfo' && !newExifData.GPSInfo) {
-      newExifData.GPSInfo = {}
-    } else if (!newExifData[sectionToUpdate]) {
-      newExifData[sectionToUpdate] = {}
-    }
-
-    newExifData[sectionToUpdate][newFieldKey] = valueToSave
-
-    onExifChange(newExifData)
+    updatedExif[sectionName][newField.key] = finalValue
+    onExifChange(updatedExif)
     handleCancelAddField()
   }
 
+  const getInputType = (value: any, key: string, sectionName: string) => {
+    if (addableExifTags[sectionName] && addableExifTags[sectionName][key]) {
+      return addableExifTags[sectionName][key]?.type || 'text'
+    }
+
+    if (value instanceof Date) {
+      return 'datetime-local'
+    }
+    if (typeof value === 'number') {
+      const formatted = formatValue(key, value)
+      if (formatted === String(value)) {
+        return 'number'
+      }
+    }
+    return 'text'
+  }
+
   return (
-    <div className="w-full mt-4">
-      {/* Regular EXIF sections */}
-      {allSections.length > 0 && (
+    <div className="w-full">
+      {Object.keys(keyParameters).length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-xl font-semibold mb-3">Key Parameters</h2>
+          <div className="grid grid-cols-2 @[30rem]:grid-cols-3 @[40rem]:grid-cols-4 gap-4">
+            {Object.entries(keyParameters).map(([key, value]) => (
+              <div
+                key={key}
+                className="bg-zinc-100 dark:bg-zinc-800 p-3 rounded-md"
+              >
+                <p className="text-sm font-medium text-zinc-500 dark:text-zinc-400">
+                  {key}
+                </p>
+                <p className="text-md font-semibold text-zinc-900 dark:text-zinc-50">
+                  {formatValue(key, value)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="columns-1 @[40rem]:columns-2 gap-x-8">
         <Accordion
           type="multiple"
           className="w-full"
-          defaultValue={allSections.map(([sectionName]) => sectionName)}
+          defaultValue={['FujiRecipe']}
         >
-          {allSections.map(([sectionName, sectionData]) => (
-            <AccordionItem key={sectionName} value={sectionName}>
-              <AccordionTrigger className="text-left">
-                <span className="font-medium">
-                  {exifTagMap[sectionName] || sectionName}
-                </span>
-              </AccordionTrigger>
+          {fujiRecipe && Object.keys(fujiRecipe).length > 0 && (
+            <AccordionItem value="FujiRecipe">
+              <AccordionTrigger>Fuji Recipe</AccordionTrigger>
               <AccordionContent>
-                <div className="grid gap-2 text-sm">
-                  {Object.entries(sectionData).map(([key, value]) => {
-                    const displayKey = exifTagMap[key] || key
-                    const displayValue =
-                      sectionName === 'Fuji Recipe'
-                        ? formatFujiRecipeValue(key, value)
-                        : formatValue(key, value)
-                    const fieldId = `${sectionName}.${key}`
-                    const isEditing = editingField === fieldId
-
-                    const isEditable =
-                      onExifChange &&
-                      !disabEditableSection.has(sectionName) &&
-                      !displayValue.startsWith('[Binary data:')
-
-                    const isPlainNumber =
-                      typeof value === 'number' &&
-                      (sectionName === 'Fuji Recipe'
-                        ? formatFujiRecipeValue(key, value)
-                        : formatValue(key, value)) === String(value)
-
-                    const getInputType = () => {
-                      if (value instanceof Date) {
-                        return 'datetime-local'
-                      }
-                      if (isPlainNumber) {
-                        return 'number'
-                      }
-                      return 'text'
-                    }
-
-                    return (
-                      <div
-                        key={key}
-                        className="grid grid-cols-[1fr_auto] gap-1 py-1 group"
-                      >
-                        <div className="font-medium text-text break-words">
-                          {displayKey}
-                        </div>
-                        <div className="text-text-secondary break-words font-mono text-xs sm:text-sm">
-                          {isEditing ? (
-                            <Input
-                              ref={inputRef}
-                              type={getInputType()}
-                              value={editingValue}
-                              onChange={(e) => setEditingValue(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleSave(sectionName, key, value)
-                                }
-                                if (e.key === 'Escape') {
-                                  handleCancel()
-                                }
-                              }}
-                              onBlur={handleCancel}
-                              className="h-6 p-0.5 w-full"
-                              inputClassName="text-right text-sm"
-                            />
-                          ) : (
-                            <div
-                              className={`rounded border border-transparent h-6 ${isEditable ? 'group-hover:border-zinc-300 dark:group-hover:border-zinc-700 cursor-pointer' : 'cursor-not-allowed'}`}
-                              onClick={() => {
-                                if (isEditable) {
-                                  handleEdit(sectionName, key, value)
-                                }
-                              }}
-                            >
-                              <span className="px-1">{displayValue}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })}
+                <div>
+                  {Object.entries(fujiRecipe).map(([key, value]) => (
+                    <div
+                      key={key}
+                      className="flex justify-between items-center h-8"
+                    >
+                      <span className="font-semibold">
+                        {fujiRecipeKeyMap[key] || key}
+                      </span>
+                      <span>{formatFujiRecipeValue(key, value)}</span>
+                    </div>
+                  ))}
                 </div>
               </AccordionContent>
             </AccordionItem>
-          ))}
+          )}
         </Accordion>
-      )}
-
-      {/* GPS Section with specialized component */}
-      {gpsData && (
-        <div className="mt-4">
-          <Accordion type="multiple" className="w-full" defaultValue={['GPS']}>
+        <Accordion type="multiple" className="w-full" defaultValue={['GPS']}>
+          {exifData.GPSInfo && (
             <AccordionItem value="GPS">
-              <AccordionTrigger className="text-left">
-                <span className="font-medium">GPS Location</span>
-              </AccordionTrigger>
+              <AccordionTrigger>GPS</AccordionTrigger>
               <AccordionContent>
                 <GpsDisplay
-                  gpsData={gpsData}
+                  gpsData={exifData.GPSInfo as Record<string, any>}
                   onGpsChange={onExifChange ? handleGpsChange : undefined}
                 />
               </AccordionContent>
             </AccordionItem>
-          </Accordion>
-        </div>
-      )}
-
-      {onExifChange && (
-        <div className="mt-4">
-          {!isAddingField ? (
-            <Button
-              variant="light"
-              onClick={() => setIsAddingField(true)}
-              disabled={!onExifChange}
-            >
-              Add EXIF Field
-            </Button>
-          ) : (
-            <div className="p-4 border rounded-lg bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700">
-              <h3 className="mb-2 font-medium">Add New EXIF Field</h3>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <Select
-                  value={newFieldSection}
-                  onValueChange={(value) => {
-                    setNewFieldSection(value)
-                    setNewFieldKey('') // Reset key when section changes
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select section" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(addableExifTags).map((section) => (
-                      <SelectItem key={section} value={section}>
-                        {section}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select
-                  value={newFieldKey}
-                  onValueChange={setNewFieldKey}
-                  disabled={!newFieldSection}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select field" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.keys(
-                      addableExifTags[
-                        newFieldSection as keyof typeof addableExifTags
-                      ] || {},
-                    ).map((tag) => (
-                      <SelectItem key={tag} value={tag}>
-                        {tag}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  type={selectedTagDefinition?.type || 'text'}
-                  placeholder={
-                    selectedTagDefinition?.description || 'Enter value'
-                  }
-                  value={newFieldValue}
-                  onChange={(e) => setNewFieldValue(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-2 mt-2">
-                <Button onClick={handleSaveNewField}>Save</Button>
-                <Button variant="ghost" onClick={handleCancelAddField}>
-                  Cancel
-                </Button>
-              </div>
-            </div>
           )}
-        </div>
-      )}
+        </Accordion>
+
+        <Accordion
+          type="multiple"
+          className="w-full space-y-4"
+          defaultValue={['Exif', 'Photo', 'Image', 'Iop', 'MakerNote']}
+        >
+          {Object.entries(exifData)
+            .filter(
+              ([key]) =>
+                !IGNORED_KEYS.has(key) &&
+                key !== 'GPSInfo' &&
+                key !== 'FujiRecipe' &&
+                key !== 'bigEndian',
+            )
+            .map(([sectionName, sectionValue]) => {
+              if (
+                !sectionValue ||
+                (typeof sectionValue === 'object' &&
+                  Object.keys(sectionValue).length === 0)
+              ) {
+                return null
+              }
+
+              const sectionTags = addableExifTags[sectionName] || {}
+
+              return (
+                <AccordionItem key={sectionName} value={sectionName}>
+                  <AccordionTrigger>{sectionName}</AccordionTrigger>
+                  <AccordionContent>
+                    <div>
+                      {Object.entries(sectionValue).map(([key, value]) => {
+                        const displayKey = exifTagMap[key] || key
+                        const formattedValue = formatValue(key, value)
+                        const fieldId = `${sectionName}.${key}`
+                        const isEditing = editingField === fieldId
+                        const isEditable =
+                          !!onExifChange &&
+                          !disabEditableSection.has(sectionName) &&
+                          !formattedValue.startsWith('[Binary data:')
+
+                        return (
+                          <div
+                            key={key}
+                            className="flex justify-between items-center group"
+                          >
+                            <span className="font-semibold break-all">
+                              {displayKey}
+                            </span>
+                            <div className="text-right">
+                              {isEditing ? (
+                                <div className="h-8 relative flex w-48 items-center">
+                                  <Input
+                                    ref={inputRef}
+                                    type={getInputType(value, key, sectionName)}
+                                    value={editingValue}
+                                    onChange={(e) =>
+                                      setEditingValue(e.target.value)
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleSave(sectionName, key, value)
+                                      }
+                                      if (e.key === 'Escape') {
+                                        handleCancel()
+                                      }
+                                    }}
+                                    inputClassName="pr-24"
+                                    className="w-full text-right"
+                                  />
+                                  <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center">
+                                    <button
+                                      type="button"
+                                      className="h-6 px-2 text-xs"
+                                      onClick={() =>
+                                        handleSave(sectionName, key, value)
+                                      }
+                                    >
+                                      <i className="i-mingcute-check-line" />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="h-6 px-2 text-xs"
+                                      onClick={handleCancel}
+                                    >
+                                      <i className="i-mingcute-close-line" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <span
+                                  className={`flex min-h-8 items-center justify-end rounded p-1 break-all ${
+                                    isEditable
+                                      ? 'cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800'
+                                      : ''
+                                  }`}
+                                  onClick={() =>
+                                    isEditable &&
+                                    handleEdit(sectionName, key, value)
+                                  }
+                                >
+                                  {formattedValue}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      {!!onExifChange &&
+                        !disabEditableSection.has(sectionName) &&
+                        Object.keys(sectionTags).length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-700">
+                            {isAddingField &&
+                            newField.section === sectionName ? (
+                              <div className="space-y-2">
+                                <Select
+                                  value={newField.key}
+                                  onValueChange={(val) =>
+                                    handleNewFieldChange('key', val)
+                                  }
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select a tag to add" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {Object.entries(sectionTags).map(
+                                      ([tagKey, tagInfo]) => (
+                                        <SelectItem key={tagKey} value={tagKey}>
+                                          {(tagInfo as ExifTagDefinition)
+                                            .description || tagKey}
+                                        </SelectItem>
+                                      ),
+                                    )}
+                                  </SelectContent>
+                                </Select>
+
+                                {newField.key && (
+                                  <>
+                                    <Input
+                                      type={
+                                        (
+                                          sectionTags[
+                                            newField.key
+                                          ] as ExifTagDefinition
+                                        )?.type || 'text'
+                                      }
+                                      placeholder={`Enter value for ${
+                                        (
+                                          sectionTags[
+                                            newField.key
+                                          ] as ExifTagDefinition
+                                        )?.description || newField.key
+                                      }`}
+                                      value={newField.value}
+                                      onChange={(e) =>
+                                        handleNewFieldChange(
+                                          'value',
+                                          e.target.value,
+                                        )
+                                      }
+                                    />
+                                    <div className="flex gap-2 pt-2">
+                                      <Button
+                                        onClick={() =>
+                                          handleSaveNewField(sectionName)
+                                        }
+                                      >
+                                        Save Field
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        onClick={handleCancelAddField}
+                                      >
+                                        Cancel
+                                      </Button>
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ) : (
+                              <Button
+                                variant="light"
+                                className="gap-1"
+                                onClick={() => handleStartAddField(sectionName)}
+                              >
+                                <i className="i-mingcute-add-line" /> Add Field
+                              </Button>
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              )
+            })}
+        </Accordion>
+      </div>
     </div>
   )
 }

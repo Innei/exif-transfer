@@ -426,3 +426,18 @@ export const orientationMap: Record<number, string> = {
   7: 'Rotated 90° CW, Flipped Horizontally',
   8: 'Rotated 90° CCW',
 }
+export const fujiRecipeKeyMap: Record<string, string> = {
+  FilmMode: 'Film Mode',
+  GrainEffectRoughness: 'Grain Effect Roughness',
+  GrainEffectSize: 'Grain Effect Size',
+  ColorChromeEffect: 'Color Chrome Effect',
+  ColorChromeFxBlue: 'Color Chrome Fx Blue',
+  WhiteBalance: 'White Balance',
+  DynamicRange: 'Dynamic Range',
+  HighlightTone: 'Highlight Tone',
+  ShadowTone: 'Shadow Tone',
+  Saturation: 'Saturation',
+  Sharpness: 'Sharpness',
+  NoiseReduction: 'Noise Reduction',
+  Clarity: 'Clarity',
+}
