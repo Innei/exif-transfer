@@ -39,7 +39,7 @@ export const Header = () => {
               EXIF Transfer
             </NavLink>
             <NavLink
-              to="/reader"
+              to="/editor"
               className={({ isActive }) =>
                 isActive
                   ? 'text-foreground'
@@ -96,7 +96,7 @@ export const Header = () => {
                 EXIF Transfer
               </NavLink>
               <NavLink
-                to="/reader"
+                to="/editor"
                 onClick={closeMenu}
                 className={({ isActive }) =>
                   isActive ? 'text-foreground' : 'text-foreground/60'

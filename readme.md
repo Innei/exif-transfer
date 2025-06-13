@@ -63,7 +63,7 @@ pnpm dev
 
 ## 🎯 How to Use
 
-### EXIF Editor Mode (`/reader`)
+### EXIF Editor Mode (`/editor`)
 
 1. **Upload Image** - Drag and drop or click to select an image with EXIF data
 2. **View & Edit** - Browse organized EXIF sections and click on values to edit them
