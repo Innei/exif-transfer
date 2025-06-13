@@ -39,12 +39,7 @@ export const ExifField = ({
 
   const displayKey = exifTagMap[fieldKey] || fieldKey
   const formattedValue = formatValue(fieldKey, value)
-  // const isEditable =
-  //   !!onExifChange &&
-  //   !disabEditableSection.has(sectionName) &&
-  //   (typeof formattedValue === 'string'
-  //     ? !formattedValue.startsWith('[Binary data:')
-  //     : true)
+
   const isEditable = useMemo(() => {
     if (!onExifChange) return false
 

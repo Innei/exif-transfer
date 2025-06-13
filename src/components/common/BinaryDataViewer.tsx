@@ -1,3 +1,5 @@
+import { toast } from 'sonner'
+
 import {
   HoverCard,
   HoverCardContent,
@@ -27,6 +29,19 @@ export const BinaryDataViewer = ({ value }: { value: Uint8Array }) => {
         </span>
       </HoverCardTrigger>
       <HoverCardContent className="w-96">
+        <div className="flex justify-between">
+          <span>{value.length} Bytes</span>
+          <button
+            type="button"
+            className="bg-material-opaque rounded p-1"
+            onClick={() => {
+              navigator.clipboard.writeText(JSON.stringify(Array.from(value)))
+              toast.success('Copied to clipboard')
+            }}
+          >
+            <i className="i-mingcute-copy-2-line" />
+          </button>
+        </div>
         <div className="font-mono text-xs max-h-64 overflow-y-auto scrollbar-none">
           {hexValue}
         </div>
