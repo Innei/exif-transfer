@@ -27,7 +27,7 @@
     "@radix-ui/react-slot": "1.2.3",
     "@radix-ui/react-tooltip": "1.2.7",
     "@remixicon/react": "4.6.0",
-    "@tanstack/react-query": "5.80.6",
+    "@tanstack/react-query": "5.83.0",
     "buffer": "6.0.3",
     "clsx": "2.1.1",
     "es-toolkit": "1.39.3",
